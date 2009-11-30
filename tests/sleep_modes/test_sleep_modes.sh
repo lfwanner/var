@@ -7,7 +7,7 @@ BOARDS=5
 OUT_DIR="/home/lucas/variability/tests/sleep_modes/output"
 
 cd $APP_DIR
-#make 
+make 
 cd -
 APP_BIN=`ls $APP_DIR/bin/*flash.bin`
 
