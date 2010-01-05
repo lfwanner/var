@@ -5,10 +5,10 @@ import os
 
 ser = serial.Serial('/dev/ttyUSB0', 57600, timeout=1)
 
-board = 'b3'
+board = 'b4'
 
 #'02', '04', '08', 
-for xtal in ['12', '14', '16', '18', '20'] :
+for xtal in ['08'] :
 	ser.readline()
 	print 'Please set XTAL to ', xtal, ', reset the board and hit [Enter]'
 	sys.stdin.readline()

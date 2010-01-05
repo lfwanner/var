@@ -72,6 +72,48 @@ for x = 1:xtals
 	print('plots/power_by_xin.eps','-deps','-color');
 end
 
+####
+
+for x = 1:xtals
+    subplot(3,2,x);
+	start = (x-1)*xtals+1; finish=x*xtals;
+	xx = bclock(start:finish,:)';
+	yy = bdmips(start:finish,:)';
+	plot(xx,yy);
+	axis([12, 128, 10, 90]);
+	legend('b1', 'b2','b3','b4','b5',4);
+	if(x > 3)	
+	  xlabel('Core Frequency (MHz)');
+	end  
+	if(mod(x,2) == 1)
+	  ylabel('DMIPS');
+	end  
+	title(strcat('xin=',int2str(xtal_speeds(x))))
+	print('plots/mips_by_xin.eps','-deps','-color');
+end
+
+
+for x = 1:xtals
+    subplot(3,2,x);
+	start = (x-1)*xtals+1; finish=x*xtals;
+	xx = bclock(start:finish,:)';
+	yy = bmpw(start:finish,:)';
+	plot(xx,yy);
+	axis([12, 128, 0.3, 0.6]);
+	legend('b1', 'b2','b3','b4','b5');
+	if(x > 3)	
+	  xlabel('Core Frequency (MHz)');
+	end  pwd
+	if(mod(x,2) == 1)
+	  ylabel('Efficiency (DMIPS/mW)');
+	end  
+	title(strcat('xin=',int2str(xtal_speeds(x))))
+	print('plots/mpw_by_xin.eps','-deps','-color');
+end
+
+####
+
+
 
 rbmpw = zeros(25,10);
 rbpower = zeros(25,10);
@@ -98,7 +140,7 @@ for x = 1:xtals
 	xx = bclock(start:finish,:)';
 	yy = rbpower(start:finish,:)';
 	plot(xx,yy);
-	axis([12, 128, 0, 110]);
+	axis([12, 128, 88, 102]);
 	legend('b1', 'b2','b3','b4','b5',4);
 	if(x > 3)	
 	  xlabel('Core Frequency (MHz)');
@@ -109,3 +151,63 @@ for x = 1:xtals
 	title(strcat('xin=',int2str(xtal_speeds(x))))
 	print('plots/power_relative_by_xin.eps','-deps','-color');
 end
+
+
+
+
+
+
+
+
+
+
+
+obpower = zeros(25,10);
+
+for b = 1:boards
+  for c = 1:10
+    start = (b-1)*5+1;
+    finish = start+4;
+    r = bpower(start:finish,c)(finite(bpower(start:finish,c)));
+    min_c = mean(r);
+    if (min_c != NaN)
+       obpower(start:finish,c) = bpower(start:finish,c).-min_c;
+	end
+  end
+end
+
+obpower = obpower + (bmpw-bmpw);
+
+for x = 1:xtals
+    subplot(3,2,x);
+	start = (x-1)*xtals+1; finish=x*xtals;
+	xx = bclock(start:finish,:)';
+	yy = obpower(start:finish,:)';
+	plot(xx,yy);
+	axis([12, 128, -4, 2]);
+	legend('b1', 'b2','b3','b4','b5',4);
+	if(x > 3)	
+	  xlabel('Core Frequency (MHz)');
+	end  
+	if(mod(x,2) == 1)
+	  ylabel('Power offset from mean (mW)');
+	end  
+	title(strcat('xin=',int2str(xtal_speeds(x))))
+	print('plots/power_offset_by_xin.eps','-deps','-color');
+end
+
+
+
+
+
+
+
+
+
+
+
+%plot(dc,dcp'); 
+
+
+
+
