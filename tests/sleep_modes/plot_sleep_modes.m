@@ -18,7 +18,28 @@ for i = 1:length(files)
 end
 
 time = file(:,1);
+
+
+power_matrix=zeros(boards,modes);
+
+for m=1:modes
+  for b=0:boards-1
+    idx = m+(b*modes);
+        power_matrix(b+1,m) = avg_power(idx); 
+  end
+end
+
+
+dlmwrite('average_power',power_matrix, '\t')
+
+
 cd ../plots/
+
+
+
+
+
+
 
 
 max_curr_range = 1:modes;
