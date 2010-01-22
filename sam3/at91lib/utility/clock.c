@@ -184,7 +184,7 @@ static const struct ClockConfiguration clockConfigurations[] = {
 // Clock configuration for the AT91SAM3U
 #elif defined(at91sam3u)
 
-static const struct ClockConfiguration clockConfigurations[] = {
+static struct ClockConfiguration clockConfigurations[] = {
 
     // PCK = 48 MHz, MCK = 48 MHz (default)
     {48, 48, 0x20073f01, 0x00000012},
@@ -206,13 +206,44 @@ static const struct ClockConfiguration clockConfigurations[] = {
 //         Global Functions
 //------------------------------------------------------------------------------
 
+void CLOCK_SetMultiplier(unsigned char multiplier, unsigned char divisor)
+{
+    //printf("Setting clock configuration #%d ... ", configuration);
+    currentConfig = 0;
+
+    clockConfigurations[currentConfig].pllr &= ~AT91C_CKGR_MULA;
+    clockConfigurations[currentConfig].pllr &= ~AT91C_CKGR_DIVA;
+
+
+    clockConfigurations[currentConfig].pllr |= (multiplier*2-1)<<16 | divisor;
+
+    
+    // Switch to main oscillator in two operations
+    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_CSS) | AT91C_PMC_CSS_MAIN_CLK;
+    while ((AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY) == 0);
+
+    // Configure PLL
+    *AT91C_CKGR_PLLAR = clockConfigurations[currentConfig].pllr;
+    while ((AT91C_BASE_PMC->PMC_SR & AT91C_PMC_LOCKA) == 0);
+
+    // Configure master clock in two operations
+    AT91C_BASE_PMC->PMC_MCKR = (clockConfigurations[currentConfig].mckr & ~AT91C_PMC_CSS) | AT91C_PMC_CSS_MAIN_CLK;
+    while ((AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY) == 0);
+    AT91C_BASE_PMC->PMC_MCKR = clockConfigurations[currentConfig].mckr;
+    while ((AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY) == 0);
+
+    // DBGU reconfiguration
+    //DBGU_Configure(DBGU_STANDARD, 115200, clockConfigurations[configuration].mck*1000000);
+    //printf("done.\n\r");
+}
+
 //------------------------------------------------------------------------------
 /// Sets the specified clock configuration.
 /// \param configuration  Index of the configuration to set.
 //------------------------------------------------------------------------------
 void CLOCK_SetConfig(unsigned char configuration)
 {
-    printf("Setting clock configuration #%d ... ", configuration);
+    //printf("Setting clock configuration #%d ... ", configuration);
     currentConfig = configuration;
     
     // Switch to main oscillator in two operations
@@ -230,8 +261,8 @@ void CLOCK_SetConfig(unsigned char configuration)
     while ((AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY) == 0);
 
     // DBGU reconfiguration
-    DBGU_Configure(DBGU_STANDARD, 115200, clockConfigurations[configuration].mck*1000000);
-    printf("done.\n\r");
+    //DBGU_Configure(DBGU_STANDARD, 115200, clockConfigurations[configuration].mck*1000000);
+    //printf("done.\n\r");
 }
 
 //------------------------------------------------------------------------------
@@ -239,6 +270,8 @@ void CLOCK_SetConfig(unsigned char configuration)
 //------------------------------------------------------------------------------
 void CLOCK_DisplayMenu(void)
 {
+
+/*
     unsigned int i;
 
     printf("\n\rMenu Clock configuration:\n\r");
@@ -250,6 +283,8 @@ void CLOCK_DisplayMenu(void)
                clockConfigurations[i].mck,
                (currentConfig==i)?"(curr)":"");
     }
+
+*/
 }
 
 //------------------------------------------------------------------------------

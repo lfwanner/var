@@ -479,7 +479,15 @@ int main(void)
     InitChip();
 
     // Test core consumption
-    TestCore();
+  PIO_Configure(&led0, 1);  
+  PIO_Clear(&led0);
+
+
+  PIO_Configure(&led1, 1);  
+  PIO_Set(&led1);
+
+	while(1){}
+  	
 
     return 0;
 }

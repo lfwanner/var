@@ -359,7 +359,11 @@ void TestActiveMode(void)
     }
     DBGU_GetChar(); // empty RX buffer
 
-    printf("Exit Active mode\n\r");
+
+
+
+
+
 }
 
 //-----------------------------------------------------------------------------

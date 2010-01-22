@@ -156,7 +156,15 @@ typedef volatile unsigned short REG16;
 //         External functions
 //------------------------------------------------------------------------------
 // External delay 1 ms function
-extern void DelayMS(unsigned int ms);
+//extern void DelayMS(unsigned int ms);
+
+void DelayMS(unsigned int ms) {
+  int i,j;
+  for(i = 0; i < ms; i++)
+    for(j = 0; j < ms; j++);
+}
+
+
 #define Delay(ms) DelayMS(ms)
 
 //------------------------------------------------------------------------------

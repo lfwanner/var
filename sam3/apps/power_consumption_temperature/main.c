@@ -89,10 +89,11 @@ void TestActiveMode(int m, int d, int iterations)
 	CLOCK_SetMultiplier(m,d);
 	TRACE_CONFIGURE(DBGU_STANDARD, 57600, get_clock());
 
-	printf("Start: ");
-	print_temperature();
+	printf("Start: %d",get_clock());
+
 	DHRY_testloop(iterations);
-	printf("Stop:  %d",iterations);
+	printf("Stop:  ");
+	print_temperature();
 
 	// This is just to add some delay
 	DHRY_testloop(iterations/10);
