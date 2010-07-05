@@ -1,0 +1,35 @@
+import serial
+import time
+import sys
+import os
+
+ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+
+board = 'b1'
+
+#'02', '04', '08', 
+for xtal in ['12'] :
+	ser.readline()
+	f = open('output/'+board,'w')
+	count = 20
+	idx = 0
+	start = 0
+	start_time = time.time();
+	while count > 0 : 
+		msg = ser.readline()
+		if len(msg) > 0 :
+			#idx = msg.find(',');
+			value = long(msg);
+			#mult  = long(msg[idx+1:len(msg)]);
+			ts = time.time();
+			count = 20;
+			#if(value != 23593719) :
+			print ts, value;
+			print >>f, ts, value;
+			f.flush;
+			os.fsync(f);
+		else : 
+			count -= 1
+	f.close()
+
+

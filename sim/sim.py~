@@ -1,0 +1,10 @@
+class Battery:
+
+	CAPACITY = 32000;
+
+	def __init__(self, capacity = CAPACITY):
+		self.totalCapacity = capacity;
+		self.remainingCapacity = capacity;
+
+	def drawPower(self, power, time)
+		self.remainingCapacity -= power*time;

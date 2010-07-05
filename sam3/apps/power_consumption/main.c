@@ -71,28 +71,6 @@ void EnterSleepMode(void)
 }
 
 //-----------------------------------------------------------------------------
-/// Enter Wait Mode
-/// Enter condition: WFE + SLEEPDEEP bit = 0 + LPM bit = 1
-//-----------------------------------------------------------------------------
-void EnterWaitMode(void)
-{
-    AT91C_BASE_PMC->PMC_FSMR |= AT91C_PMC_LPM;
-    AT91C_BASE_NVIC->NVIC_SCR &= ~AT91C_NVIC_SLEEPDEEP;
-    // Wake from Event    
-    __WFE();
-}
-
-//-----------------------------------------------------------------------------
-/// Enter Backup Mode
-/// Enter condition: WFE + SLEEPDEEP bit = 1
-//-----------------------------------------------------------------------------
-void EnterBackupMode(void)
-{
-    AT91C_BASE_NVIC->NVIC_SCR |= AT91C_NVIC_SLEEPDEEP;
-    __WFE();
-}
-
-//-----------------------------------------------------------------------------
 /// Interrupt handler for buttons.
 //-----------------------------------------------------------------------------
 void ISR_ButtonWakeUp(void)
@@ -133,120 +111,6 @@ void SetWakeUpInputsForFastStartup(unsigned int inputs)
 }
 
 //------------------------------------------------------------------------------
-/// Save and restore working clock.
-/// Here working clock must be running from PLL
-/// and external crystal oscillator is used.
-//------------------------------------------------------------------------------
-void SaveWorkingClock(unsigned int *pOldPll, unsigned int *pOldMck)
-{
-    // Save previous values for PLL A and Master Clock configuration
-    *pOldPll = AT91C_BASE_CKGR->CKGR_PLLAR;
-    *pOldMck = AT91C_BASE_PMC->PMC_MCKR;
-}
-
-void RestoreWorkingClock(unsigned int oldPll, unsigned int oldMck)
-{
-    // Switch to slow clock first
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_CSS)
-        | AT91C_PMC_CSS_SLOW_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_PRES)
-        | AT91C_PMC_PRES_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-    
-    // Restart Main Oscillator
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | (0x3F<<8) | AT91C_CKGR_MOSCRCEN | AT91C_CKGR_MOSCXTEN;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MOSCXTS));
-    // Switch to moscsel
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | (0x3F<<8) | AT91C_CKGR_MOSCRCEN | AT91C_CKGR_MOSCXTEN | AT91C_CKGR_MOSCSEL;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MOSCSELS));
-
-    // Switch to main oscillator
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_CSS) |
-        AT91C_PMC_CSS_MAIN_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_PRES)
-        | AT91C_PMC_PRES_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    // Restart PLL A
-    AT91C_BASE_CKGR->CKGR_PLLAR = oldPll;
-    while(!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_LOCKA));
-
-    // Switch to fast clock
-    AT91C_BASE_PMC->PMC_MCKR = (oldMck & ~AT91C_PMC_CSS) | AT91C_PMC_CSS_MAIN_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    AT91C_BASE_PMC->PMC_MCKR = oldMck;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-}
-
-//------------------------------------------------------------------------------
-/// Configure clock by using 32KHz RC Oscillator.
-/// \param pres Programmable Clock Prescaler
-//------------------------------------------------------------------------------
-void ConfigureClockUsing32KRcOsc(unsigned int pres)
-{
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_CSS)
-        | AT91C_PMC_CSS_SLOW_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_PRES)
-        | pres;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    // Stop PLL A
-    // MULA: PLL A Multiplier 0 = The PLL A is deactivated.
-    // STMODE must be set at 2 when the PLLA is Off
-    AT91C_BASE_PMC->PMC_PLLAR = 0x2 << 14;
-
-    // Stop Main Oscillator
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | (0x3F << 8);
-}
-
-//------------------------------------------------------------------------------
-/// Configure clock by using Main On-Chip RC Oscillator.
-/// \param moscrcf Main On-Chip RC Oscillator Frequency Selection
-/// \param pres    Processor Clock Prescaler
-//------------------------------------------------------------------------------
-void ConfigureClockUsingFastRcOsc(unsigned int moscrcf, unsigned int pres)
-{
-    // Enable Fast RC oscillator but DO NOT switch to RC now . Keep MOSCSEL to 1
-    AT91C_BASE_PMC->PMC_MOR = AT91C_CKGR_MOSCSEL | (0x37 << 16)
-        | AT91C_CKGR_MOSCXTEN | AT91C_CKGR_MOSCRCEN;
-    // Wait the Fast RC to stabilize
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MOSCRCS));
-
-    // Switch from Main Xtal osc to Fast RC
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | AT91C_CKGR_MOSCRCEN | AT91C_CKGR_MOSCXTEN ;
-    // Wait for Main Oscillator Selection Status bit MOSCSELS
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MOSCSELS));
-
-    // Disable Main XTAL Oscillator
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | AT91C_CKGR_MOSCRCEN;
-
-    // Change frequency of Fast RC oscillator
-    AT91C_BASE_PMC->PMC_MOR = (0x37 << 16) | AT91C_BASE_PMC->PMC_MOR | moscrcf;
-    // Wait the Fast RC to stabilize
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MOSCRCS));
-
-    // Switch to main clock
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_CSS)
-        | AT91C_PMC_CSS_MAIN_CLK;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-    AT91C_BASE_PMC->PMC_MCKR = (AT91C_BASE_PMC->PMC_MCKR & ~AT91C_PMC_PRES)
-        | pres;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_MCKRDY));
-
-    // Stop PLL A
-    // MULA: PLL A Multiplier 0 = The PLL A is deactivated.
-    // STMODE must be set at 2 when the PLLA is Off
-    AT91C_BASE_PMC->PMC_PLLAR = 0x2 << 14;
-}
-
-//------------------------------------------------------------------------------
 /// Test Active Mode
 //------------------------------------------------------------------------------
 void TestActiveMode(void)
@@ -261,10 +125,8 @@ void TestActiveMode(void)
     DHRY_testloop(1);
   }
 
-  //PIO_Configure(&pinPB2, 0);
-
   PIO_Set(&led0);  
-  //PIO_Configure(&led0, 0);
+
 
 }
 
@@ -278,192 +140,26 @@ void TestSleepMode(unsigned char key)
     unsigned int oldPeriphClk;
     unsigned int temp;
 
-    // Save current working clock
-    SaveWorkingClock(&oldPll, &oldMck);
 
-    // Save previous values peripheral clock then disable all
-    oldPeriphClk = AT91C_BASE_PMC->PMC_PCSR;
-    PMC_DisableAllPeripherals();
 
-    // Stop UTMI
-    AT91C_BASE_CKGR->CKGR_UCKR &= ~AT91C_CKGR_UPLLEN;
-
-    // Disable Brownout Detector
-    AT91C_BASE_SUPC->SUPC_MR |= (0xA5 << 24) | (0x01 << 13);
-
-    // Configure PIO for warkup
     PIO_Configure(&pinPB1, 1);
     ConfigureWakeUpInterrupt();
 
-    // Switch clock frequency
-    switch (key) {
-        case '0': // 500Hz
-            ConfigureClockUsing32KRcOsc(AT91C_PMC_PRES_CLK_64);
-            break;
-        case '1': // 32KHz
-            ConfigureClockUsing32KRcOsc(AT91C_PMC_PRES_CLK);
-            break;
-        case '2': // 125KHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK_32);
-            break;
-        case '3': // 250KHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK_16);
-            break;
-        case '4': // 500KHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK_8);
-            break;
-        case '5': // 1MHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK_4);
-            break;
-        case '6': // 2MHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK_2);
-            break;
-        case '7': // 4MHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK);
-            break;
-        case '8': // 8MHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_8MHZ, AT91C_PMC_PRES_CLK);
-            break;
-        case '9': // 12MHz
-            ConfigureClockUsingFastRcOsc(FAST_RC_OSC_12MHZ, AT91C_PMC_PRES_CLK);
-            break;
-        case 'c':
-        default:
-            // do nothing
-            break;
-    }
 
-    // Enter Sleep Mode
     EnterSleepMode();
 
-    // Restore working clock
-    RestoreWorkingClock(oldPll, oldMck);
+
 
     DisableWakeUpInterrupt();
     
-    // Restore peripheral clock
-    AT91C_BASE_PMC->PMC_PCER = oldPeriphClk;
-
-    // Start UTMI
-    AT91C_BASE_CKGR->CKGR_UCKR |= (AT91C_CKGR_UPLLCOUNT & (3 << 20)) | AT91C_CKGR_UPLLEN;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_LOCKU));
-
-    // Enable Brownout Detector
-    temp = AT91C_BASE_SUPC->SUPC_MR & 0x00FFFFFF;
-    AT91C_BASE_SUPC->SUPC_MR = (0xA5 << 24) | (temp & (~(0x01 << 13)));
 
 }
 
-//------------------------------------------------------------------------------
-/// Test Wait Mode
-//------------------------------------------------------------------------------
-void TestWaitMode(void)
-{
-    unsigned int oldPll;
-    unsigned int oldMck;
-    unsigned int temp;
-
-    // Save current working clock
-    SaveWorkingClock(&oldPll, &oldMck);
-
-    // Stop UTMI
-    AT91C_BASE_CKGR->CKGR_UCKR &= ~AT91C_CKGR_UPLLEN;
-
-    // Disable Brownout Detector
-    AT91C_BASE_SUPC->SUPC_MR |= (0xA5 << 24) | (0x01 << 13);
-
-    // Configure 4Mhz fast RC oscillator
-    ConfigureClockUsingFastRcOsc(FAST_RC_OSC_4MHZ, AT91C_PMC_PRES_CLK);
-
-    // Enter Wait Mode
-    PIO_Configure(&pinPB1, 1);
-    SetWakeUpInputsForFastStartup(BUTTON_WAKEUP);
-    EnterWaitMode();
-
-    // Restore working clock
-    RestoreWorkingClock(oldPll, oldMck);
-
-    // Start UTMI
-    AT91C_BASE_CKGR->CKGR_UCKR |= (AT91C_CKGR_UPLLCOUNT & (3 << 20)) | AT91C_CKGR_UPLLEN;
-    while (!(AT91C_BASE_PMC->PMC_SR & AT91C_PMC_LOCKU));
-
-    // Enable Brownout Detector
-    temp = AT91C_BASE_SUPC->SUPC_MR & 0x00FFFFFF;
-    AT91C_BASE_SUPC->SUPC_MR = (0xA5 << 24) | (temp & (~(0x01 << 13)));
-
-}	
-
-//------------------------------------------------------------------------------
-/// Test Backup Mode
-//------------------------------------------------------------------------------
-void TestBackupMode(void)
-{
-    // GPBR0 is for recording times of entering backup mode
-    *AT91C_SYS_GPBR += 1;
-
-    // Enable force wake up
-    AT91C_BASE_SUPC->SUPC_WUMR |= AT91C_SUPC_WUMR_FWUPEN_ENABLE;
-
-    // Enter Backup Mode
-    EnterBackupMode();
-}
 
 
 
 
 
-
-
-//-----------------------------------------------------------------------------
-/// test Core consumption
-//-----------------------------------------------------------------------------
-void TestCore(void)
-{
-
-    if ((int)*AT91C_SYS_GPBR < 1) 
-        TestBackupMode();
-
-  TestActiveMode();     
-  
-  TestWaitMode();   
-  	
-  TestActiveMode();  
-   
-  TestSleepMode('0');
-   
-  TestActiveMode();  
-  
-  TestSleepMode('1');
-   
-  TestActiveMode();    
-
-  TestSleepMode('2');
-
-  TestActiveMode();  
-
-  TestSleepMode('5');
-
-  TestActiveMode();  
-
-  TestSleepMode('c');
-  
-  TestActiveMode();  
-  
-  while(1) {
-    PIO_Configure(&led0, 1);  
-    PIO_Clear(&led0);
-
-    PIO_Configure(&led1, 1);  
-    PIO_Clear(&led1);
-  }
-	
-    
-    
-}
-
-//-----------------------------------------------------------------------------
-/// main function
-//-----------------------------------------------------------------------------
 int main(void)
 {
   
@@ -486,7 +182,14 @@ int main(void)
   PIO_Configure(&led1, 1);  
   PIO_Set(&led1);
 
-	while(1){}
+	while(1){
+
+  TestActiveMode();  
+  
+  TestSleepMode('1');
+
+
+}
   	
 
     return 0;
