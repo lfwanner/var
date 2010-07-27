@@ -79,7 +79,7 @@ void TestActiveMode(int m, int d, int iterations)
 {
 
 	CLOCK_SetMultiplier(m,d);
-	TRACE_CONFIGURE(DBGU_STANDARD, 57600, get_clock());
+	TRACE_CONFIGURE(DBGU_STANDARD, 9600, get_clock());
 
 	printf("Start: %d",get_clock());
 	DHRY_testloop(iterations);
@@ -92,7 +92,7 @@ void TestActiveMode(int m, int d, int iterations)
 
 int main(void) {
 
-	TRACE_CONFIGURE(DBGU_STANDARD, 57600, get_clock());
+	TRACE_CONFIGURE(DBGU_STANDARD, 9600, get_clock());
 	CLOCK_SetMultiplier(1,4);
 
 	int i;
